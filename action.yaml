@@ -1,0 +1,58 @@
+name: 'Deploy Terraform with Workspace Support'
+description: 'Initializes and applies Terraform configurations with support for workspace selection'
+inputs:
+  aws_access_key_id:
+    description: 'AWS Access Key ID'
+    required: true
+  aws_secret_access_key:
+    description: 'AWS Secret Access Key'
+    required: true
+  aws_region:
+    description: 'AWS Region'
+    required: true
+  terraform_directory:
+    description: 'Directory of Terraform configurations'
+    required: true
+  terraform_workspace:
+    description: 'Terraform workspace to use'
+    required: true
+  deploy:
+    description: 'Whether or not to deploy resources'
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: '1.0.0'
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ inputs.aws_access_key_id }}
+        aws-secret-access-key: ${{ inputs.aws_secret_access_key }}
+        aws-region: ${{ inputs.aws_region }}
+    
+    - name: Initialize terraform and set workspace
+      shell: bash
+      run: |
+        cd ${{ inputs.terraform_directory }}
+        terraform init
+        terraform workspace select ${{ inputs.terraform_workspace }} || terraform workspace new ${{ inputs.terraform_workspace }}
+
+    - name: Plan Terraform
+      if: ${{ !inputs.deploy == 'true'}}
+      shell: bash
+      run: |
+        cd ${{ inputs.terraform_directory }}
+        terraform plan
+
+    - name: Apply Terraform
+      if: ${{ inputs.deploy == 'true'}}
+      shell: bash
+      run: |
+        cd ${{ inputs.terraform_directory }}
+        terraform apply --auto-approve
